@@ -1,0 +1,106 @@
+import streamlit as st
+import time
+import openai
+import pandas as pd
+from datetime import datetime
+import difflib
+
+# 🔑 API key
+openai.api_key = "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"
+
+# Frameworks for Bot B
+FRAMEWORKS = {
+    "Chain-of-Thought": "Let's think step by step. {query}",
+    "PEEL": "Answer using Point, Evidence, Example, and Link. {query}",
+    "5W1H": "Answer using Who, What, Where, When, Why, and How. {query}",
+    "ReAct": "First reason, then act (produce final answer). {query}",
+    "TAE": "First Task, then Action, then Evaluation. {query}"
+}
+
+# -------------------- Helper Functions --------------------
+
+def run_bot(prompt):
+    """Call OpenAI API"""
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful AI assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=300
+    )
+    return response.choices[0].message["content"].strip()
+
+def similarity_score(text1, text2):
+    """Compute similarity ratio (%) between two responses"""
+    return round(difflib.SequenceMatcher(None, text1, text2).ratio() * 100, 2)
+
+# -------------------- Streamlit UI --------------------
+
+st.title("🧪 Prompt Engineering Research: Freeform vs Framework")
+
+# User query (no task selection, no auto defaults)
+query = st.text_area("Enter your query:", placeholder="Type your question here...")
+
+framework = st.selectbox("Choose Framework for Bot B", list(FRAMEWORKS.keys()))
+
+if st.button("Run Experiment") and query.strip():
+    # Freeform bot
+    start_free = time.time()
+    response_freeform = run_bot(query)
+    end_free = time.time()
+    time_free = round(end_free - start_free, 2)
+
+    # Framework bot
+    start_fw = time.time()
+    fw_prompt = FRAMEWORKS[framework].format(query=query)
+    response_framework = run_bot(fw_prompt)
+    end_fw = time.time()
+    time_fw = round(end_fw - start_fw, 2)
+
+    # ---------------- Display Results ----------------
+    st.subheader("🤖 Bot A (Freeform Response)")
+    st.write(response_freeform)
+    rating_free = st.slider("Rate Bot A (1-5)", 1, 5, 3, key="rating_free")
+
+    st.subheader(f"⚡ Bot B (Framework: {framework})")
+    st.write(response_framework)
+    rating_fw = st.slider("Rate Bot B (1-5)", 1, 5, 3, key="rating_fw")
+
+    # ---------------- Analysis Section ----------------
+    st.subheader("📊 Response Analysis")
+
+    st.markdown(f"**Bot A Time Taken:** {time_free} sec")
+    st.markdown(f"**Bot B Time Taken:** {time_fw} sec")
+
+    st.markdown(f"**Bot A User Rating:** {rating_free}/5")
+    st.markdown(f"**Bot B User Rating:** {rating_fw}/5")
+
+    sim = similarity_score(response_freeform, response_framework)
+    st.markdown(f"**Response Similarity Between Bots:** {sim}%")
+
+    if rating_fw > rating_free:
+        st.markdown("✅ **Framework-based prompting performed better (per user rating).**")
+    elif rating_fw < rating_free:
+        st.markdown("✅ **Freeform prompting performed better (per user rating).**")
+    else:
+        st.markdown("⚖️ **Both performed equally well.**")
+
+    # ---------------- Logging ----------------
+    log = {
+        "timestamp": datetime.now(),
+        "query": query,
+        "framework": framework,
+        "freeform_answer": response_freeform,
+        "framework_answer": response_framework,
+        "time_freeform": time_free,
+        "time_framework": time_fw,
+        "rating_freeform": rating_free,
+        "rating_framework": rating_fw,
+        "similarity": sim
+    }
+
+    df = pd.DataFrame([log])
+    df.to_csv("experiment_logs.csv", mode="a", header=False, index=False)
+
+    st.success("Result logged!")
