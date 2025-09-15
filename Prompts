@@ -6,7 +6,7 @@ from datetime import datetime
 import difflib
 
 # 🔑 API key
-openai.api_key = "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"
+openai.api_key = " "
 
 # Frameworks for Bot B
 FRAMEWORKS = {
